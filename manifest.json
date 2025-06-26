@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "iZone to Google Calendar",
+  "version": "1.0",
+  "description": "Migrates your timetable from iZone to your Google Calendar.",
+  "permissions": [
+    "identity",
+    "storage",
+    "activeTab",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://izone.sunway.edu.my/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://izone.sunway.edu.my/timetable*",
+        "https://izone.sunway.edu.my/Timetable*",
+        "https://izone.sunway.edu.my/*timetable*",
+        "https://izone.sunway.edu.my/*"
+      ],
+      "js": ["parser.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "oauth2": {
+    "client_id": "490810507981-k44t53gk4l62cb6h5rq7s7shun7nh92e.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.events"
+    ]
+  }
+}
+
