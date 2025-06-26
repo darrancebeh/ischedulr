@@ -51,16 +51,39 @@ document.getElementById('migrateButton').addEventListener('click', () => {
         // --- NEW CONFIRMATION LOGIC STARTS HERE ---
 
         // 1. Format the data into a human-readable preview message.
-        let previewMessage = `The extension found ${timetableData.length} classes for the current week.\n\nThis will be scheduled for the rest of the semester based on your inputs (Semester: ${semesterType} weeks, Current Week: ${currentWeek}).\n\nDo you want to add them to your calendar?\n\n--- PREVIEW OF THIS WEEK ---\n`;
+        let previewMessage = `The extension found ${timetableData.length} classes for your typical week.\n\nThis schedule will be applied for the rest of the semester based on your inputs (Semester: ${semesterType} weeks, Current Week: ${currentWeek}).\n\nDo you want to add them to your calendar?\n\n--- PREVIEW OF YOUR WEEKLY SCHEDULE ---\n`;
         
-        // We'll only preview the first 5 classes to keep the alert box from being huge.
-        timetableData.slice(0, 5).forEach(course => {
-          const startTime = course.time.split(' - ')[0]; // Get just the start time
-          previewMessage += `- ${course.date} @ ${startTime}: ${course.subject}\n`;
+        const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        
+        // Group courses by day of the week
+        const scheduleByDay = {};
+        timetableData.forEach(course => {
+            const courseDate = new Date(course.date);
+            const dayIndex = courseDate.getDay();
+            if (!scheduleByDay[dayIndex]) {
+                scheduleByDay[dayIndex] = [];
+            }
+            scheduleByDay[dayIndex].push(course);
         });
 
-        if (timetableData.length > 5) {
-          previewMessage += `\n...and ${timetableData.length - 5} more.`;
+        // Sort courses within each day by start time
+        for (const dayIndex in scheduleByDay) {
+            scheduleByDay[dayIndex].sort((a, b) => {
+                const timeA = a.time.split(' - ')[0];
+                const timeB = b.time.split(' - ')[0];
+                return timeA.localeCompare(timeB);
+            });
+        }
+
+        // Build the preview message, grouped by day
+        for (let i = 0; i < 7; i++) { // Loop from Sunday to Saturday to ensure order
+            if (scheduleByDay[i]) {
+                previewMessage += `\n${days[i]}\n`;
+                scheduleByDay[i].forEach(course => {
+                    const startTime = course.time.split(' - ')[0];
+                    previewMessage += `- ${startTime}: ${course.subject} (${course.grouping})\n`;
+                });
+            }
         }
 
         // 2. Show the confirm dialog box. If the user clicks "OK", this returns true.
