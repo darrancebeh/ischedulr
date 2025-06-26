@@ -19,8 +19,7 @@ function formatEventForGoogle(course) {
     'description': `Lecturer: ${course.lecturer}`,
     'start': {
       'dateTime': startDateTime.toISOString(), // Converts the date to the format Google needs
-      'timeZone': 'Asia/Kuala_Lumpur', // IMPORTANT: Change this to your university's timezone!
-                                       // Find your timezone here: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      'timeZone': 'Asia/Kuala_Lumpur',
     },
     'end': {
       'dateTime': endDateTime.toISOString(),
@@ -30,9 +29,6 @@ function formatEventForGoogle(course) {
   };
   return event;
 }
-
-
-// --- THE REST OF THE FILE IS THE SAME AS THE PREVIOUS GUIDE ---
 
 // 1. A function to get the Google Auth Token
 function getAuthToken() {
@@ -93,6 +89,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     }
     
-    return true; // Indicates you will send a response asynchronously
+    return true; // sends a response asynchronously
   }
 });

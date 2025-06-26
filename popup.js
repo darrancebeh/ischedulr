@@ -79,8 +79,6 @@ document.getElementById('migrateButton').addEventListener('click', () => {
           migrateButton.disabled = false;
         }
 
-        // --- NEW CONFIRMATION LOGIC ENDS HERE ---
-
         } else {
           statusDiv.textContent = 'Could not find a valid timetable on this page.';
           migrateButton.disabled = false;
