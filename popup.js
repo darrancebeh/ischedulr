@@ -2,6 +2,11 @@ document.getElementById('migrateButton').addEventListener('click', () => {
   const statusDiv = document.getElementById('status');
   const migrateButton = document.getElementById('migrateButton');
 
+  // Get the new semester details from the form
+  const semesterType = document.getElementById('semesterType').value;
+  const currentWeek = document.getElementById('currentWeek').value;
+  const checkpointDate = document.getElementById('checkpointDate').value;
+
   migrateButton.disabled = true;
   statusDiv.textContent = 'Reading timetable...';
 
@@ -46,7 +51,7 @@ document.getElementById('migrateButton').addEventListener('click', () => {
         // --- NEW CONFIRMATION LOGIC STARTS HERE ---
 
         // 1. Format the data into a human-readable preview message.
-        let previewMessage = `The extension found ${timetableData.length} classes.\n\nDo you want to add them to your calendar?\n\n--- PREVIEW ---\n`;
+        let previewMessage = `The extension found ${timetableData.length} classes for the current week.\n\nThis will be scheduled for the rest of the semester based on your inputs (Semester: ${semesterType} weeks, Current Week: ${currentWeek}).\n\nDo you want to add them to your calendar?\n\n--- PREVIEW OF THIS WEEK ---\n`;
         
         // We'll only preview the first 5 classes to keep the alert box from being huge.
         timetableData.slice(0, 5).forEach(course => {
@@ -61,9 +66,18 @@ document.getElementById('migrateButton').addEventListener('click', () => {
         // 2. Show the confirm dialog box. If the user clicks "OK", this returns true.
         if (window.confirm(previewMessage)) {
           // User clicked OK, so we proceed with the migration.
-          statusDiv.textContent = `Approved! Migrating ${timetableData.length} courses...`;
+          statusDiv.textContent = `Approved! Migrating ${timetableData.length} courses for the rest of the semester...`;
           
-          chrome.runtime.sendMessage({ action: "migrateData", data: timetableData }, (bgResponse) => {
+          // Send all the data, including the new semester details, to the background script
+          chrome.runtime.sendMessage({
+            action: "migrateData",
+            data: timetableData,
+            semesterDetails: {
+              type: semesterType,
+              currentWeek: parseInt(currentWeek, 10),
+              checkpointDate: checkpointDate
+            }
+          }, (bgResponse) => {
             if (bgResponse && bgResponse.success) {
               statusDiv.textContent = 'Success! Your timetable has been migrated.';
             } else {
