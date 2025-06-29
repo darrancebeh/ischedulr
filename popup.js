@@ -52,12 +52,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const userInfo = await getUserInfo(token);
-      if (userInfo && userInfo.id) {
-        currentAccountId = userInfo.id;
-        updateUiForSignIn(userInfo);
-      } else {
-        statusDiv.textContent = 'Failed to get user information.';
+      try {
+        const userInfo = await getUserInfo(token);
+        if (userInfo && userInfo.id) {
+          currentAccountId = userInfo.id;
+          updateUiForSignIn(userInfo);
+        } else {
+          // This case might be hit if the token is invalid
+          throw new Error('User info not found in response.');
+        }
+      } catch (error) {
+        console.error("Error fetching user info, possibly stale token:", error);
+        // The token is likely invalid or expired. Remove it and try again.
+        chrome.identity.removeCachedAuthToken({ token: token }, () => {
+          statusDiv.textContent = 'Token was invalid, please try signing in again.';
+        });
       }
     });
   }
