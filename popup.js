@@ -125,3 +125,10 @@ document.getElementById('migrateButton').addEventListener('click', () => {
     });
   });
 });
+
+document.getElementById('checkpointDate').valueAsDate = new Date();
+
+// Add a listener for the history button
+document.getElementById('historyButton').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'history.html' });
+});

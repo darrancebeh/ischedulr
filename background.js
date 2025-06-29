@@ -102,6 +102,27 @@ async function createCalendarEvent(token, eventData) {
   return responseData; // This will contain the event object, including the id
 }
 
+// NEW function to delete an event from Google Calendar
+async function deleteCalendarEvent(token, eventId) {
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    }
+  });
+
+  // If the response is empty, it means the deletion was successful (status 204)
+  if (response.status === 204) {
+    return { success: true };
+  }
+
+  const responseData = await response.json();
+  if (responseData.error) {
+    console.error('Google API Error on delete:', responseData.error);
+  }
+  return responseData;
+}
+
 // Main migration logic
 async function migrateFullSemester(timetableData, semesterDetails, token) {
   const createdEventIds = []; // To store the IDs of all created events
@@ -206,4 +227,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     return true; // To indicate that we will be sending a response asynchronously
   }
+
+  // NEW listener for deleting a migration
+  if (request.action === "deleteMigration") {
+    console.log("Background: Received request to delete migration:", request.migrationId);
+    getAuthToken()
+      .then(token => {
+        return undoMigration(token, request.migrationId);
+      })
+      .then(() => {
+        console.log("Background: Successfully deleted migration.");
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error("Background: Failed to delete migration:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
+
+  // NEW listener for clearing all history
+  if (request.action === "clearAllHistory") {
+    chrome.storage.local.set({ migrationHistory: [] }, () => {
+      console.log("Background: All migration history cleared.");
+      sendResponse({ success: true });
+    });
+    return true;
+  }
 });
+
+// NEW function to handle the undo logic
+async function undoMigration(token, migrationId) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get({ migrationHistory: [] }, async (result) => {
+      const history = result.migrationHistory;
+      const migrationToDelete = history.find(item => item.migrationId === migrationId);
+
+      if (!migrationToDelete) {
+        return reject(new Error("Migration not found."));
+      }
+
+      for (const eventId of migrationToDelete.eventIds) {
+        await deleteCalendarEvent(token, eventId);
+      }
+
+      // Remove the migration from the history
+      const updatedHistory = history.filter(item => item.migrationId !== migrationId);
+      chrome.storage.local.set({ migrationHistory: updatedHistory }, () => {
+        resolve();
+      });
+    });
+  });
+}
