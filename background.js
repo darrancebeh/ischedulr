@@ -167,7 +167,7 @@ async function migrateFullSemester(timetableData, semesterDetails, token, accoun
     }
 
     // 4. Add the "Academic Week X" reminder
-    const actualAcademicWeek = week + weekOffset;
+    const actualAcademicWeek = week;
     const reminderEvent = createWeeklyReminderEvent(`Academic Week ${actualAcademicWeek}`, currentMonday);
     const createdReminder = await createCalendarEvent(token, reminderEvent);
     if (createdReminder && createdReminder.id) {
@@ -239,31 +239,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "deleteMigration") {
     console.log("Background: Received request to delete migration:", request.migrationId);
 
-    // First, get the migration from history to find the associated account ID
-    chrome.storage.local.get({ migrationHistory: [] }, (result) => {
-      const migrationToDelete = result.migrationHistory.find(m => m.migrationId === request.migrationId);
-
-      if (!migrationToDelete || !migrationToDelete.accountId) {
-        const errorMsg = "Account ID for this migration was not saved. Cannot undo.";
-        console.error("Background: " + errorMsg);
-        sendResponse({ success: false, error: errorMsg });
-        return;
-      }
-
-      // Now, get the token for the correct account
-      getAuthToken(migrationToDelete.accountId)
-        .then(token => {
-          return undoMigration(token, request.migrationId);
-        })
-        .then(() => {
-          console.log("Background: Successfully deleted migration.");
-          sendResponse({ success: true });
-        })
-        .catch(error => {
-          console.error("Background: Failed to delete migration:", error);
-          sendResponse({ success: false, error: error.message });
-        });
-    });
+    // The undoMigration function handles getting the token and deleting.
+    // We just need to call it with the migrationId.
+    undoMigration(request.migrationId)
+      .then(() => {
+        console.log("Background: Successfully deleted migration.");
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error("Background: Failed to delete migration:", error);
+        sendResponse({ success: false, error: error.message });
+      });
 
     return true; // To indicate that we will be sending a response asynchronously
   }
