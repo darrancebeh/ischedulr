@@ -12,10 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userInfoDiv = document.getElementById('userInfo');
   const userEmailSpan = document.getElementById('userEmail');
   const migrationControls = document.getElementById('migrationControls');
-  const previewSection = document.getElementById('preview-section');
-  const previewContent = document.getElementById('previewContent');
-  const confirmMigrationButton = document.getElementById('confirmMigrationButton');
-  const cancelMigrationButton = document.getElementById('cancelMigrationButton');
+  const historyButton = document.getElementById('historyButton');
 
   let currentAccountId = null;
 
@@ -102,6 +99,10 @@ document.addEventListener('DOMContentLoaded', () => {
         signIn(true);
       }
     });
+  });
+
+  historyButton.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'history.html' });
   });
 
   migrateButton.addEventListener('click', () => {

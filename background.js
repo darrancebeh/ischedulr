@@ -124,7 +124,7 @@ async function deleteCalendarEvent(token, eventId) {
 }
 
 // Main migration logic
-async function migrateFullSemester(timetableData, semesterDetails, token) {
+async function migrateFullSemester(timetableData, semesterDetails, token, accountId) {
   const createdEventIds = []; // To store the IDs of all created events
 
   // 1. Calculate the start date of the entire semester
@@ -151,18 +151,24 @@ async function migrateFullSemester(timetableData, semesterDetails, token) {
     }
 
     // 3. Handle mid-semester break for long semesters
-    if (semesterDetails.type == 14 && week === 7) {
-      const breakEvent = createWeeklyReminderEvent("Mid-Semester Break", currentMonday);
-      const createdEvent = await createCalendarEvent(token, breakEvent);
-      if (createdEvent && createdEvent.id) {
-        createdEventIds.push(createdEvent.id);
-      }
-      continue; // Skip to the next week, no classes during the break
+    let weekOffset = 0;
+    if (semesterDetails.type == 14) {
+        if (week >= 7) {
+            weekOffset = 1; // Account for mid-semester break
+        }
+        if (week === 7) {
+            const breakEvent = createWeeklyReminderEvent("Mid-Semester Break (Week 7)", currentMonday);
+            const createdEvent = await createCalendarEvent(token, breakEvent);
+            if (createdEvent && createdEvent.id) {
+                createdEventIds.push(createdEvent.id);
+            }
+            continue; // Skip to the next week, no classes during the break
+        }
     }
 
     // 4. Add the "Academic Week X" reminder
-    const weekNumberForTitle = (semesterDetails.type == 14 && week > 7) ? week - 1 : week;
-    const reminderEvent = createWeeklyReminderEvent(`Academic Week ${weekNumberForTitle}`, currentMonday);
+    const actualAcademicWeek = week + weekOffset;
+    const reminderEvent = createWeeklyReminderEvent(`Academic Week ${actualAcademicWeek}`, currentMonday);
     const createdReminder = await createCalendarEvent(token, reminderEvent);
     if (createdReminder && createdReminder.id) {
         createdEventIds.push(createdReminder.id);
@@ -185,11 +191,11 @@ async function migrateFullSemester(timetableData, semesterDetails, token) {
     }
   }
   // After the loop, save the history
-  await saveMigrationHistory(createdEventIds, semesterDetails);
+  await saveMigrationHistory(createdEventIds, semesterDetails, accountId);
 }
 
 // NEW function to save migration history
-async function saveMigrationHistory(eventIds, semesterDetails) {
+async function saveMigrationHistory(eventIds, semesterDetails, accountId) {
   return new Promise((resolve) => {
     chrome.storage.local.get({ migrationHistory: [] }, (result) => {
       const history = result.migrationHistory;
@@ -198,6 +204,7 @@ async function saveMigrationHistory(eventIds, semesterDetails) {
         date: new Date().toISOString(),
         semesterDetails: semesterDetails,
         eventIds: eventIds,
+        accountId: accountId, // Save the account ID with the history
       });
       chrome.storage.local.set({ migrationHistory: history }, () => {
         console.log("Migration history saved.", history);
@@ -214,7 +221,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     getAuthToken(request.accountId) // Pass the account ID here
       .then(token => {
-        return migrateFullSemester(request.data, request.semesterDetails, token);
+        return migrateFullSemester(request.data, request.semesterDetails, token, request.accountId);
       })
       .then(() => {
         console.log("Background: Migration completed successfully.");
@@ -231,22 +238,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // NEW listener for deleting a migration
   if (request.action === "deleteMigration") {
     console.log("Background: Received request to delete migration:", request.migrationId);
-    // We need to know which account this migration belonged to.
-    // For simplicity, we'll just get a token for the currently selected user.
-    // A more robust solution would store the accountId with the migration history.
-    getAuthToken() 
-      .then(token => {
-        return undoMigration(token, request.migrationId);
-      })
-      .then(() => {
-        console.log("Background: Successfully deleted migration.");
-        sendResponse({ success: true });
-      })
-      .catch(error => {
-        console.error("Background: Failed to delete migration:", error);
-        sendResponse({ success: false, error: error.message });
-      });
-    return true;
+
+    // First, get the migration from history to find the associated account ID
+    chrome.storage.local.get({ migrationHistory: [] }, (result) => {
+      const migrationToDelete = result.migrationHistory.find(m => m.migrationId === request.migrationId);
+
+      if (!migrationToDelete || !migrationToDelete.accountId) {
+        const errorMsg = "Account ID for this migration was not saved. Cannot undo.";
+        console.error("Background: " + errorMsg);
+        sendResponse({ success: false, error: errorMsg });
+        return;
+      }
+
+      // Now, get the token for the correct account
+      getAuthToken(migrationToDelete.accountId)
+        .then(token => {
+          return undoMigration(token, request.migrationId);
+        })
+        .then(() => {
+          console.log("Background: Successfully deleted migration.");
+          sendResponse({ success: true });
+        })
+        .catch(error => {
+          console.error("Background: Failed to delete migration:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+    });
+
+    return true; // To indicate that we will be sending a response asynchronously
   }
 
   // NEW listener for clearing all history
@@ -260,7 +279,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // NEW function to handle the undo logic
-async function undoMigration(token, migrationId) {
+async function undoMigration(migrationId) {
   return new Promise((resolve, reject) => {
     chrome.storage.local.get({ migrationHistory: [] }, async (result) => {
       const history = result.migrationHistory;
@@ -270,15 +289,24 @@ async function undoMigration(token, migrationId) {
         return reject(new Error("Migration not found."));
       }
 
-      for (const eventId of migrationToDelete.eventIds) {
-        await deleteCalendarEvent(token, eventId);
+      if (!migrationToDelete.accountId) {
+        return reject(new Error("Account ID for this migration was not saved. Cannot undo."));
       }
 
-      // Remove the migration from the history
-      const updatedHistory = history.filter(item => item.migrationId !== migrationId);
-      chrome.storage.local.set({ migrationHistory: updatedHistory }, () => {
-        resolve();
-      });
+      try {
+        const token = await getAuthToken(migrationToDelete.accountId);
+        for (const eventId of migrationToDelete.eventIds) {
+          await deleteCalendarEvent(token, eventId);
+        }
+
+        // Remove the migration from the history
+        const updatedHistory = history.filter(item => item.migrationId !== migrationId);
+        chrome.storage.local.set({ migrationHistory: updatedHistory }, () => {
+          resolve();
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
   });
 }
