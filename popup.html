@@ -13,32 +13,37 @@
 <body>
   <h3>iSchedulr - Your iZone-to-GoogleCalendar Sync tool</h3>
 
-  <div class="input-group">
-    <label for="semesterType">Semester Type:</label>
-    <select id="semesterType">
-      <option value="14">Long Semester (14 Weeks)</option>
-      <option value="7">Short Semester (7 Weeks)</option>
-    </select>
+  <div id="auth-section">
+    <div id="userInfo" style="display: none;">
+      <p>Signed in as: <span id="userEmail"></span></p>
+      <button id="changeAccountButton">Change Account</button>
+    </div>
+    <button id="signInButton">Sign in with Google</button>
   </div>
 
-  <div class="input-group">
-    <label for="currentWeek">Current Academic Week:</label>
-    <input type="number" id="currentWeek" value="1" min="1" max="14">
-  </div>
+  <div id="migrationControls" style="display: none;">
+    <div class="input-group">
+      <label for="semesterType">Semester Type:</label>
+      <select id="semesterType">
+        <option value="14">Long Semester (14 Weeks)</option>
+        <option value="7">Short Semester (7 Weeks)</option>
+      </select>
+    </div>
 
-  <div class="input-group">
-    <label for="checkpointDate">Today's Date:</label>
-    <input type="date" id="checkpointDate">
-  </div>
+    <div class="input-group">
+      <label for="currentWeek">Current Academic Week:</label>
+      <input type="number" id="currentWeek" value="1" min="1" max="14">
+    </div>
 
-  <button id="migrateButton">Migrate to Calendar</button>
-  <button id="historyButton" style="background-color: #6c757d; margin-top: 5px;">View History</button>
+    <div class="input-group">
+      <label for="checkpointDate">Today's Date:</label>
+      <input type="date" id="checkpointDate">
+    </div>
+
+    <button id="migrateButton">Migrate to Calendar</button>
+  </div>
 
   <div id="status">Ready to migrate your schedule.</div>
   <script src="popup.js"></script>
-  <script>
-    // Set the checkpoint date to today by default
-    document.getElementById('checkpointDate').valueAsDate = new Date();
-  </script>
 </body>
 </html>

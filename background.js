@@ -71,10 +71,10 @@ function createWeeklyReminderEvent(title, date) {
   return event;
 }
 
-// 1. A function to get the Google Auth Token
-function getAuthToken() {
+// 1. A function to get the Google Auth Token for a specific account
+function getAuthToken(accountId) {
   return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive: true }, (token) => {
+    chrome.identity.getAuthToken({ interactive: true, account: { id: accountId } }, (token) => {
       if (chrome.runtime.lastError || !token) {
         reject(chrome.runtime.lastError);
       } else {
@@ -212,7 +212,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "migrateData") {
     console.log("Background: Received data for migration:", request);
 
-    getAuthToken()
+    getAuthToken(request.accountId) // Pass the account ID here
       .then(token => {
         return migrateFullSemester(request.data, request.semesterDetails, token);
       })
@@ -231,7 +231,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // NEW listener for deleting a migration
   if (request.action === "deleteMigration") {
     console.log("Background: Received request to delete migration:", request.migrationId);
-    getAuthToken()
+    // We need to know which account this migration belonged to.
+    // For simplicity, we'll just get a token for the currently selected user.
+    // A more robust solution would store the accountId with the migration history.
+    getAuthToken() 
       .then(token => {
         return undoMigration(token, request.migrationId);
       })
