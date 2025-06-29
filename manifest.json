@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "iZone to Google Calendar",
+  "name": "iSchedulr",
   "version": "1.0",
-  "description": "Migrates your timetable from iZone to your Google Calendar.",
+  "description": "Migrates your iZone (Sunway University) timetable into your Google Calendar.",
+  "icons": {
+    "16": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
   "permissions": [
     "identity",
     "storage",

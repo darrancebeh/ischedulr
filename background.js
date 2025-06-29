@@ -5,16 +5,37 @@
 // This is much simpler because we have the exact date and time.
 function formatEventForGoogle(course, eventDate) {
   // --- Time and Date Parsing ---
-  const [startTimeStr, endTimeStr] = course.time.split(' - '); // e.g., "08:00", "09:00"
+  const [startTimeStr, endTimeStr] = course.time.split(' - '); // e.g., "02:00 PM", "04:00 PM"
 
-  // We combine the calculated eventDate with the time string to create a full date object
+  // Helper function to convert 12-hour AM/PM time to 24-hour format
+  const convertTo24Hour = (timeStr) => {
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+
+    if (modifier === 'PM' && hours < 12) {
+      hours += 12;
+    }
+    if (modifier === 'AM' && hours === 12) { // Handle midnight case (12:00 AM)
+      hours = 0;
+    }
+    return { hours, minutes };
+  };
+
+  const { hours: startHour, minutes: startMinute } = convertTo24Hour(startTimeStr);
+  const { hours: endHour, minutes: endMinute } = convertTo24Hour(endTimeStr);
+
+  // Create the start date object
   const startDateTime = new Date(eventDate);
-  startDateTime.setHours(parseInt(startTimeStr.split(':')[0], 10));
-  startDateTime.setMinutes(parseInt(startTimeStr.split(':')[1], 10));
+  startDateTime.setHours(startHour, startMinute, 0, 0); // Set hours, minutes, seconds, and milliseconds
 
-  const endDateTime = new Date(eventDate);
-  endDateTime.setHours(parseInt(endTimeStr.split(':')[0], 10));
-  endDateTime.setMinutes(parseInt(endTimeStr.split(':')[1], 10));
+  // Create the end date object based on the start date
+  const endDateTime = new Date(startDateTime);
+  endDateTime.setHours(endHour, endMinute, 0, 0);
+
+  // Handle cases where the class spans across midnight (unlikely for timetables, but good practice)
+  if (endDateTime <= startDateTime) {
+    endDateTime.setDate(endDateTime.getDate() + 1);
+  }
 
   // Construct the event object for the Google Calendar API
   const event = {
@@ -22,14 +43,13 @@ function formatEventForGoogle(course, eventDate) {
     'location': course.venue,
     'description': `Lecturer: ${course.lecturer}`,
     'start': {
-      'dateTime': startDateTime.toISOString(), // Converts the date to the format Google needs
+      'dateTime': startDateTime.toISOString(),
       'timeZone': 'Asia/Kuala_Lumpur',
     },
     'end': {
       'dateTime': endDateTime.toISOString(),
-      'timeZone': 'Asia/Kuala_Lumpur', // Use the same timezone here
+      'timeZone': 'Asia/Kuala_Lumpur',
     },
-    // We don't need a 'recurrence' field anymore!
   };
   return event;
 }
@@ -79,11 +99,13 @@ async function createCalendarEvent(token, eventData) {
   if (responseData.error) {
       console.error('Google API Error:', responseData.error);
   }
-  return responseData;
+  return responseData; // This will contain the event object, including the id
 }
 
 // Main migration logic
 async function migrateFullSemester(timetableData, semesterDetails, token) {
+  const createdEventIds = []; // To store the IDs of all created events
+
   // 1. Calculate the start date of the entire semester
   const checkpoint = new Date(semesterDetails.checkpointDate);
   const dayOfWeekOfCheckpoint = checkpoint.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
@@ -110,14 +132,20 @@ async function migrateFullSemester(timetableData, semesterDetails, token) {
     // 3. Handle mid-semester break for long semesters
     if (semesterDetails.type == 14 && week === 7) {
       const breakEvent = createWeeklyReminderEvent("Mid-Semester Break", currentMonday);
-      await createCalendarEvent(token, breakEvent);
+      const createdEvent = await createCalendarEvent(token, breakEvent);
+      if (createdEvent && createdEvent.id) {
+        createdEventIds.push(createdEvent.id);
+      }
       continue; // Skip to the next week, no classes during the break
     }
 
     // 4. Add the "Academic Week X" reminder
     const weekNumberForTitle = (semesterDetails.type == 14 && week > 7) ? week - 1 : week;
     const reminderEvent = createWeeklyReminderEvent(`Academic Week ${weekNumberForTitle}`, currentMonday);
-    await createCalendarEvent(token, reminderEvent);
+    const createdReminder = await createCalendarEvent(token, reminderEvent);
+    if (createdReminder && createdReminder.id) {
+        createdEventIds.push(createdReminder.id);
+    }
 
     // 5. Schedule all the classes for the current week
     for (const course of timetableData) {
@@ -129,9 +157,33 @@ async function migrateFullSemester(timetableData, semesterDetails, token) {
       eventDate.setDate(currentMonday.getDate() + dayOffset);
 
       const eventData = formatEventForGoogle(course, eventDate);
-      await createCalendarEvent(token, eventData);
+      const createdEvent = await createCalendarEvent(token, eventData);
+      if (createdEvent && createdEvent.id) {
+        createdEventIds.push(createdEvent.id);
+      }
     }
   }
+  // After the loop, save the history
+  await saveMigrationHistory(createdEventIds, semesterDetails);
+}
+
+// NEW function to save migration history
+async function saveMigrationHistory(eventIds, semesterDetails) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ migrationHistory: [] }, (result) => {
+      const history = result.migrationHistory;
+      history.push({
+        migrationId: `mig-${Date.now()}`,
+        date: new Date().toISOString(),
+        semesterDetails: semesterDetails,
+        eventIds: eventIds,
+      });
+      chrome.storage.local.set({ migrationHistory: history }, () => {
+        console.log("Migration history saved.", history);
+        resolve();
+      });
+    });
+  });
 }
 
 // 3. Listen for the message from our popup

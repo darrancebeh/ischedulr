@@ -80,8 +80,8 @@ document.getElementById('migrateButton').addEventListener('click', () => {
             if (scheduleByDay[i]) {
                 previewMessage += `\n${days[i]}\n`;
                 scheduleByDay[i].forEach(course => {
-                    const startTime = course.time.split(' - ')[0];
-                    previewMessage += `- ${startTime}: ${course.subject} (${course.grouping})\n`;
+                    const [startTime, endTime] = course.time.split(' - ');
+                    previewMessage += `- ${startTime} to ${endTime}: ${course.subject} (${course.grouping}) at ${course.venue}\n`;
                 });
             }
         }
