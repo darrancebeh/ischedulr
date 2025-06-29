@@ -45,6 +45,14 @@
     <button id="migrateButton">Migrate to Calendar</button>
   </div>
 
+  <div id="preview-section" style="display: none; text-align: left; padding: 10px;">
+    <h4>Preview Weekly Schedule</h4>
+    <pre id="previewContent" style="white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;"></pre>
+    <p>Do you want to add this schedule to your calendar for the rest of the semester?</p>
+    <button id="confirmMigrationButton">Confirm & Migrate</button>
+    <button id="cancelMigrationButton">Cancel</button>
+  </div>
+
   <div id="status">Ready to migrate your schedule.</div>
   <script src="popup.js"></script>
 </body>

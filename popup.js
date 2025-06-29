@@ -12,6 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const userInfoDiv = document.getElementById('userInfo');
   const userEmailSpan = document.getElementById('userEmail');
   const migrationControls = document.getElementById('migrationControls');
+  const previewSection = document.getElementById('preview-section');
+  const previewContent = document.getElementById('previewContent');
+  const confirmMigrationButton = document.getElementById('confirmMigrationButton');
+  const cancelMigrationButton = document.getElementById('cancelMigrationButton');
 
   let currentAccountId = null;
 
@@ -158,8 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
               // --- NEW CONFIRMATION LOGIC STARTS HERE ---
 
               // 1. Format the data into a human-readable preview message.
-              let previewMessage = `The extension found ${timetableData.length} classes for your typical week.\n\nThis schedule will be applied for the rest of the semester based on your inputs (Semester: ${semesterType} weeks, Current Week: ${currentWeek}).\n\nDo you want to add them to your calendar?\n\n--- PREVIEW OF YOUR WEEKLY SCHEDULE ---\n`;
-              
+              let previewMessage = `The extension found ${timetableData.length} classes for your typical week.\n\nThis schedule will be applied for the rest of the semester based on your inputs (Semester: ${semesterType} weeks, Current Week: ${currentWeek}).\nDisclaimer: The preview above is simplified. Please verify the total class count (${timetableData.length}) before proceeding.\n\n--- PREVIEW OF YOUR WEEKLY SCHEDULE ---\n`;
+
               const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
               
               // Group courses by day of the week
@@ -187,8 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
                   if (scheduleByDay[i]) {
                       previewMessage += `\n${days[i]}\n`;
                       scheduleByDay[i].forEach(course => {
-                          const [startTime, endTime] = course.time.split(' - ');
-                          previewMessage += `- ${startTime} to ${endTime}: ${course.subject} (${course.grouping}) at ${course.venue}\n`;
+                          const startTime = course.time.split(' - ')[0];
+                          previewMessage += `- ${startTime}: ${course.subject}\n`;
                       });
                   }
               }
